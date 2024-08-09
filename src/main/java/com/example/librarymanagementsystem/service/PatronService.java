@@ -11,7 +11,9 @@ import jakarta.validation.ConstraintViolation;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +29,7 @@ public class PatronService extends ValidationService {
     private BorrowRecordRepository borrowRecordRepository;
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "patrons", key = "#id")
     public PatronDto findPatron(Long id) throws BaseValidationException {
         Patron patron = getPatronById(id);
         return mapToPatronDto(patron);
@@ -50,6 +53,7 @@ public class PatronService extends ValidationService {
 
     @Transactional
     @CacheEvict(value = "patrons", key = "'allPatrons'")
+    @CachePut(value = "patrons", key = "#id")
     public PatronDto updatePatron(Long id, PatronCreateInfo patronCreateInfo) throws BaseValidationException {
         Patron patron = getPatronById(id);
         if(patronCreateInfo.getPhone() != null && patronRepository.findByPhoneAndIdNot(patronCreateInfo.getPhone(), patron.getId()).isPresent()) {
@@ -59,7 +63,10 @@ public class PatronService extends ValidationService {
     }
 
     @Transactional
-    @CacheEvict(value = "patrons", key = "'allPatrons'")
+    @Caching(evict = {
+            @CacheEvict(value = "patrons", key = "'allPatrons'"),
+            @CacheEvict(value = "patrons", key = "#id")
+    })
     public void deletePatron(Long id) throws BaseValidationException {
         Patron patron = getPatronById(id);
         if(!borrowRecordRepository.findAllByPatronIdAndReturnDateIsNull(patron.getId()).isEmpty()) {

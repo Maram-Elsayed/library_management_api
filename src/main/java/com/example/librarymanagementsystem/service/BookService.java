@@ -10,6 +10,8 @@ import com.example.librarymanagementsystem.persistence.repository.BookRepository
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Caching;
+import org.springframework.cache.annotation.CachePut;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +38,7 @@ public class BookService extends ValidationService {
     }
 
     @Transactional(readOnly = true)
+    @Cacheable(value = "books", key = "#id")
     public BookDto findBook(Long id) throws BaseValidationException {
         Book book = getBookById(id);
         return mapToBookDto(book);
@@ -49,7 +52,10 @@ public class BookService extends ValidationService {
     }
 
     @Transactional
-    @CacheEvict(value = "books", key = "'allBooks'")
+    @Caching(evict = {
+            @CacheEvict(value = "books", key = "'allBooks'"),
+            @CacheEvict(value = "books", key = "#id")
+    })
     public void deleteBook(Long id) throws BaseValidationException {
         Book book = getBookById(id);
         if(book.getStatus() == BookStatus.BORROWED) {
@@ -60,6 +66,7 @@ public class BookService extends ValidationService {
 
     @Transactional
     @CacheEvict(value = "books", key = "'allBooks'")
+    @CachePut(value = "books", key = "#id")
     public BookDto updateBook(Long id, BookCreateInfo bookCreateInfo) throws BaseValidationException {
         Book book = getBookById(id);
         if(bookCreateInfo.getIsbn() != null && bookRepository.findByIsbnAndIdNot(bookCreateInfo.getIsbn(), book.getId()).isPresent()) {
